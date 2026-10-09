@@ -39,8 +39,11 @@ export async function POST(request: Request) {
   if (frozenQuestions.length) {
     // Published forms keep their prompts, keys, and solutions fixed. Choice display
     // metadata can be repaired in place so existing tests render their source assets.
-    const { error: repairError } = await admin.from("question_catalog").upsert(frozenQuestions.map(({ id, options }) => ({ id, options })));
-    if (repairError) return NextResponse.json({ error: repairError.message }, { status: 500 });
+    const repairs = await Promise.all(frozenQuestions.map(({ id, options }) =>
+      admin.from("question_catalog").update({ options }).eq("id", id).select("id").maybeSingle(),
+    ));
+    const failedRepair = repairs.find((result) => result.error || !result.data);
+    if (failedRepair) return NextResponse.json({ error: failedRepair.error?.message ?? "Could not repair stored choices for a published question." }, { status: 500 });
   }
   if (!editableQuestions.length) return NextResponse.json({ saved: 0, repaired: frozenQuestions.length, frozen: frozenQuestions.length });
   const catalogRows = editableQuestions.map((question) => ({
