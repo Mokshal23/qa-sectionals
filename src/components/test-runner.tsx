@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check, CircleAlert, Flag, Grid2X2, LoaderCircle, LockKeyhole, Send, Timer, X } from "lucide-react";
 import type { AttemptEvent, Difficulty, ResponseType } from "@/lib/domain";
+import { resumeQuestionIndex } from "@/lib/test-state";
 
 type Choice = { id: string; text: string };
 type TestQuestion = { id: string; prompt: string; promptHtml: string; options: Choice[]; pillar: string; topic: string; area: string; difficulty: Difficulty; responseType: ResponseType };
@@ -71,6 +72,8 @@ export function TestRunner({ attemptId }: { attemptId: string }) {
         if (!response.ok) throw new Error(result.error || "Could not load this attempt.");
         if (!alive) return;
         if (result.attempt.status === "submitted") { router.replace(`/analysis/${attemptId}`); return; }
+        const restoredIndex = resumeQuestionIndex(result.questions.map((question: TestQuestion) => question.id), result.events ?? []);
+        setCurrent(restoredIndex);
         setData(result);
         const savedAnswers = result.attempt.answers ?? {};
         answersRef.current = savedAnswers; setAnswers(savedAnswers);
@@ -82,10 +85,10 @@ export function TestRunner({ attemptId }: { attemptId: string }) {
         setReview(marked);
         const deadline = new Date(result.attempt.started_at).getTime() + result.sectional.duration_seconds * 1000;
         setRemaining(Math.max(0, Math.ceil((deadline - Date.now()) / 1000)));
-        const firstQuestion = result.questions[0];
-        if (firstQuestion) {
-          eventsRef.current.push(makeEvent("question_opened", firstQuestion.id));
-          lastQuestionId.current = firstQuestion.id; lastOpenedAt.current = Date.now(); setRevision((value) => value + 1);
+        const restoredQuestion = result.questions[restoredIndex];
+        if (restoredQuestion) {
+          eventsRef.current.push(makeEvent("question_opened", restoredQuestion.id));
+          lastQuestionId.current = restoredQuestion.id; lastOpenedAt.current = Date.now(); setRevision((value) => value + 1);
         }
         setLoading(false);
       } catch (cause) {
@@ -133,7 +136,7 @@ export function TestRunner({ attemptId }: { attemptId: string }) {
       } else if (data) {
         push(makeEvent("focus_changed", undefined, undefined, true, true));
         const question = data.questions[current];
-        if (question) { lastQuestionId.current = question.id; lastOpenedAt.current = Date.now(); }
+        if (question) { push(makeEvent("question_opened", question.id)); lastQuestionId.current = question.id; lastOpenedAt.current = Date.now(); }
       }
     };
     document.addEventListener("visibilitychange", visibility);
