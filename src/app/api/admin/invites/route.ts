@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getOwnerApiUser } from "@/lib/api-auth";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -6,7 +7,7 @@ export async function GET() {
   const auth = await getOwnerApiUser();
   if ("error" in auth) return auth.error;
   const admin = createSupabaseAdminClient();
-  const { data, error } = await admin.from("platform_invites").select("email,role,active,created_at").order("created_at", { ascending: false });
+  const { data, error } = await admin.from("platform_invites").select("email,role,active,created_at,claimed_at,invite_expires_at").order("created_at", { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ invites: data ?? [] });
 }
@@ -18,24 +19,19 @@ export async function POST(request: Request) {
   const cleanEmail = email?.trim().toLowerCase();
   if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
   const admin = createSupabaseAdminClient();
-  const origin = new URL(request.url).origin;
-  const [{ data: existingInvite }, { data: users }] = await Promise.all([
-    admin.from("platform_invites").select("active,role").eq("email", cleanEmail).maybeSingle(),
-    admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
-  ]);
-  if (existingInvite?.active) return NextResponse.json({ error: "This email is already invited." }, { status: 409 });
-  let targetUser = users.users.find((candidate) => candidate.email?.toLowerCase() === cleanEmail);
-  if (targetUser) {
-    const { error: roleError } = await admin.auth.admin.updateUserById(targetUser.id, { app_metadata: { ...targetUser.app_metadata, role: "participant", revoked: false } });
-    if (roleError) return NextResponse.json({ error: roleError.message }, { status: 500 });
-  } else {
-    const { data, error } = await admin.auth.admin.inviteUserByEmail(cleanEmail, { redirectTo: `${origin}/auth/callback` });
-    if (error || !data.user) return NextResponse.json({ error: error?.message ?? "Could not invite this person." }, { status: 400 });
-    targetUser = data.user;
-    const { error: roleError } = await admin.auth.admin.updateUserById(targetUser.id, { app_metadata: { role: "participant", revoked: false } });
-    if (roleError) return NextResponse.json({ error: roleError.message }, { status: 500 });
+  const { data: existingInvite, error: lookupError } = await admin.from("platform_invites").select("active,role,claimed_at,invite_expires_at").eq("email", cleanEmail).maybeSingle();
+  if (lookupError) return NextResponse.json({ error: "Could not check existing invitations." }, { status: 500 });
+  if (existingInvite?.role === "owner") return NextResponse.json({ error: "This email belongs to the organizer." }, { status: 409 });
+  if (existingInvite?.active && (existingInvite.claimed_at || (existingInvite.invite_expires_at && new Date(existingInvite.invite_expires_at) > new Date()))) {
+    return NextResponse.json({ error: "This member already has active access or a valid invite code." }, { status: 409 });
   }
-  const { error: storeError } = await admin.from("platform_invites").upsert({ email: cleanEmail, role: "participant", active: true });
+  const inviteCode = randomBytes(24).toString("base64url");
+  const tokenHash = createHash("sha256").update(inviteCode).digest("hex");
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const { error: storeError } = await admin.from("platform_invites").upsert({
+    email: cleanEmail, role: "participant", active: true,
+    invite_token_hash: tokenHash, invite_expires_at: expiresAt, claimed_at: null,
+  });
   if (storeError) return NextResponse.json({ error: storeError.message }, { status: 500 });
-  return NextResponse.json({ ok: true, restored: Boolean(existingInvite) });
+  return NextResponse.json({ ok: true, inviteCode, expiresAt, restored: Boolean(existingInvite) });
 }

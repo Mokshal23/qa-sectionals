@@ -8,20 +8,20 @@ An invite-only Next.js platform for fixed 22-question QA sectionals, individual 
 - Run `node scripts/prepare-bank.mjs <source-file> data/question-bank.json` to make a safe normalized bank. The normalizer discards the source mock's personal answer, result, mark, and time fields.
 - Postgres separates question stems from answer keys. During an active sitting, the browser receives stems and choices only.
 - RLS scopes attempts and event rows to `auth.uid()`. Organizer APIs manage questions, forms, and invitations; none query participant attempts.
-- A one-time organizer token bootstraps the first owner invitation. Members are then invited from the organizer screen.
+- A one-time organizer token bootstraps the first owner account. The organizer can create one-time invite codes; friends set their own passwords with those codes. No confirmation, magic-link, or invitation emails are sent.
 
 ## Supabase setup
 
 1. Create a Supabase project and run `database/migrations/001_platform.sql` in its SQL Editor.
 2. Set the four values in `.env.local` (see `.env.example`): project URL, publishable/anon key, server-only service role key, and a long random `OWNER_SETUP_TOKEN`.
 3. Seed the bank from the normalized private JSON with `node scripts/seed-supabase.mjs`. This script sends only question content and metadata; it does not send the original personal attempt fields.
-4. Add the deployed domain and `/auth/callback` to Supabase Auth's allowed redirect URLs. Disable open sign-ups; invitations create member accounts.
+4. Add the deployed domain to Supabase Auth's allowed redirect URLs and disable open sign-ups. Invited accounts are created server-side with verified email status, so participants do not need confirmation emails.
 
 Keep `SUPABASE_SERVICE_ROLE_KEY` and `OWNER_SETUP_TOKEN` server-only. Never prefix them with `NEXT_PUBLIC_` or commit `.env.local`.
 
 ## Vercel
 
-Import this repository as a Next.js project and set the same four environment variables in Vercel. The question bank is in Supabase, not in the repository. Once deployed, visit `/setup`, enter the organizer email and one-time setup code, and accept the invitation from that mailbox. After sign-in, import/manage the bank, preview the form mix, publish, and invite friends.
+Import this repository as a Next.js project and set the same four environment variables in Vercel. The question bank is in Supabase, not in the repository. Once deployed, visit `/setup`, enter the organizer email, one-time setup code, and a password. After sign-in, import/manage the bank, preview the form mix, publish, and share invite codes directly with friends.
 
 ## Product rules
 

@@ -45,6 +45,9 @@ create table if not exists public.platform_invites (
   email text primary key,
   role text not null default 'participant' check (role in ('owner','participant')),
   active boolean not null default true,
+  invite_token_hash text,
+  invite_expires_at timestamptz,
+  claimed_at timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -106,6 +109,15 @@ as $$
 $$;
 revoke all on function public.is_active_member() from public, anon;
 grant execute on function public.is_active_member() to authenticated;
+
+drop policy if exists "members can read stems in their sectionals" on public.question_catalog;
+drop policy if exists "participants can read published sectionals" on public.sectionals;
+drop policy if exists "participants can read published sectional items" on public.sectional_questions;
+drop policy if exists "participants can read only their attempts" on public.attempts;
+drop policy if exists "participants can create only their attempts" on public.attempts;
+drop policy if exists "participants can update only their attempts" on public.attempts;
+drop policy if exists "participants can read only their events" on public.attempt_events;
+drop policy if exists "participants can create only their events" on public.attempt_events;
 
 create policy "members can read stems in their sectionals"
   on public.question_catalog for select to authenticated using (

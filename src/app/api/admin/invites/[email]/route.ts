@@ -17,7 +17,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     const { error: revokeError } = await admin.auth.admin.updateUserById(target.id, { app_metadata: { ...target.app_metadata, role: "participant", revoked: true } });
     if (revokeError) return NextResponse.json({ error: revokeError.message }, { status: 500 });
   }
-  const { error: inviteError } = await admin.from("platform_invites").update({ active: false }).eq("email", cleanEmail);
+  const { error: inviteError } = await admin.from("platform_invites").update({ active: false, invite_token_hash: null, invite_expires_at: null }).eq("email", cleanEmail);
   if (inviteError) return NextResponse.json({ error: inviteError.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }
