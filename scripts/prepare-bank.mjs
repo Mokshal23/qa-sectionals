@@ -52,7 +52,7 @@ const questions = rows.map((row, index) => {
     difficulty: normalizeDifficulty(row.classification ?? row.difficulty),
     responseType: normalizeResponseType(row.format ?? row.responseType),
     pValue: toFiniteNumber(row.p_value ?? row.pValue),
-    pValueUnit: "source-percent",
+    pValueUnit: String(row.p_value_unit ?? row.pValueUnit ?? "source-supplied").trim(),
     hasSolution: solution.length > 0,
   };
 });

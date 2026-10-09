@@ -22,7 +22,8 @@ const questions = Array.isArray(bank) ? bank : bank.questions;
 if (!Array.isArray(questions) || !questions.length) throw new Error("No normalized questions were found in the JSON file.");
 
 const admin = createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
-const batchSize = 50;
+// Small batches keep rich-text solutions with embedded diagrams under API body limits.
+const batchSize = 5;
 for (let index = 0; index < questions.length; index += batchSize) {
   const batch = questions.slice(index, index + batchSize);
   const catalog = batch.map((question) => ({

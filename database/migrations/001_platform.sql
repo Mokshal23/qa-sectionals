@@ -163,5 +163,10 @@ revoke update on public.attempts from authenticated;
 grant update (answers, retry_answers, mistake_labels, solution_opened) on public.attempts to authenticated;
 grant select, insert on public.attempt_events to authenticated;
 
+grant usage on schema public to service_role;
+grant all privileges on public.question_catalog, public.question_solutions,
+  public.sectionals, public.sectional_questions, public.platform_invites,
+  public.attempts, public.attempt_events to service_role;
+
 -- The service role is used by server routes for catalog management, invitations,
 -- and scoring. No server route exposes organizer access to attempts.
