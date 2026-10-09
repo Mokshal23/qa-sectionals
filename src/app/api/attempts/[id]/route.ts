@@ -3,7 +3,7 @@ import { getApiUser } from "@/lib/api-auth";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { analyzeAttempt } from "@/lib/analytics";
 import type { AttemptEvent, AttemptRecord, Question } from "@/lib/domain";
-import { safeQuestionHtml } from "@/lib/sanitize";
+import { safeQuestionChoices, safeQuestionHtml } from "@/lib/sanitize";
 import { topicBucket } from "@/lib/domain";
 
 function median(values: number[]) {
@@ -29,7 +29,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const orderedQuestions = ids.map((questionId) => questionRows?.find((question) => question.id === questionId)).filter(Boolean);
   const publicQuestions = orderedQuestions.map((row) => ({
     id: row.id, prompt: row.prompt, promptHtml: safeQuestionHtml(row.prompt_html ?? ""),
-    options: row.options, pillar: row.pillar, topic: row.topic, area: row.area,
+    options: safeQuestionChoices(row.options), pillar: row.pillar, topic: row.topic, area: row.area,
     difficulty: row.difficulty, responseType: row.response_type,
     pValue: row.p_value === null ? null : Number(row.p_value), pValueUnit: row.p_value_unit,
   }));
@@ -42,7 +42,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     const complete = orderedQuestions.map((row) => {
       const key = keyRows?.find((candidate) => candidate.question_id === row.id);
       return {
-        id: row.id, prompt: row.prompt, promptHtml: row.prompt_html, options: row.options,
+        id: row.id, prompt: row.prompt, promptHtml: row.prompt_html, options: safeQuestionChoices(row.options),
         pillar: row.pillar, topic: row.topic, area: row.area, difficulty: row.difficulty,
         responseType: row.response_type, pValue: row.p_value === null ? null : Number(row.p_value),
         pValueUnit: row.p_value_unit,

@@ -20,16 +20,18 @@ export function BankWorkspace({ stats, preview }: { stats: Stats; preview: boole
       if (preview) throw new Error("Connect Supabase before uploading this bank to the hosted workspace.");
       const batchSize = 20;
       let frozenTotal = 0;
+      let repairedTotal = 0;
       for (let index = 0; index < questions.length; index += batchSize) {
         const batch = questions.slice(index, index + batchSize);
         const response = await fetch("/api/admin/bank", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ questions: batch }) });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || `Could not save rows ${index + 1}–${index + batch.length}.`);
         frozenTotal += Number(result.frozen ?? 0);
+        repairedTotal += Number(result.repaired ?? 0);
         setProgress(Math.min(100, Math.round(((index + batch.length) / questions.length) * 100)));
         setStatus(`Saved ${Math.min(index + batch.length, questions.length)} of ${questions.length} questions…`);
       }
-      setStatus(`Processed ${questions.length} questions; ${frozenTotal} already used in published forms were left unchanged. ${issues.filter((issue) => issue.severity === "warning").length} source warnings were found.`);
+      setStatus(`Processed ${questions.length} questions; repaired choice display for ${repairedTotal} questions already used in published forms. Their prompts, keys, and solutions stayed fixed. ${questions.length - frozenTotal} unused questions were updated. ${issues.filter((issue) => issue.severity === "warning").length} source warnings were found.`);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Import failed."); setStatus(""); }
     finally { setBusy(false); if (inputRef.current) inputRef.current.value = ""; }
   }

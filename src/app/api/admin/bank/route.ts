@@ -35,7 +35,14 @@ export async function POST(request: Request) {
   if (usedError) return NextResponse.json({ error: usedError.message }, { status: 500 });
   const frozenIds = new Set((usedRows ?? []).map((row) => row.question_id));
   const editableQuestions = questions.filter((question) => !frozenIds.has(question.id));
-  if (!editableQuestions.length) return NextResponse.json({ saved: 0, frozen: questions.length });
+  const frozenQuestions = questions.filter((question) => frozenIds.has(question.id));
+  if (frozenQuestions.length) {
+    // Published forms keep their prompts, keys, and solutions fixed. Choice display
+    // metadata can be repaired in place so existing tests render their source assets.
+    const { error: repairError } = await admin.from("question_catalog").upsert(frozenQuestions.map(({ id, options }) => ({ id, options })));
+    if (repairError) return NextResponse.json({ error: repairError.message }, { status: 500 });
+  }
+  if (!editableQuestions.length) return NextResponse.json({ saved: 0, repaired: frozenQuestions.length, frozen: frozenQuestions.length });
   const catalogRows = editableQuestions.map((question) => ({
     id: question.id, prompt: question.prompt, prompt_html: question.promptHtml,
     options: question.options, pillar: question.pillar, topic: question.topic, area: question.area,
@@ -49,5 +56,5 @@ export async function POST(request: Request) {
     const { error: keyError } = await admin.from("question_solutions").upsert(keyRows);
     if (keyError) return NextResponse.json({ error: keyError.message }, { status: 500 });
   }
-  return NextResponse.json({ saved: editableQuestions.length, frozen: questions.length - editableQuestions.length });
+  return NextResponse.json({ saved: editableQuestions.length, repaired: frozenQuestions.length, frozen: frozenQuestions.length });
 }

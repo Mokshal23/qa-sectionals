@@ -8,6 +8,39 @@ function asString(value: unknown): string {
   return value === null || value === undefined ? "" : String(value).trim();
 }
 
+const allowedChoiceImageHost = "quizky-images.s3.ap-south-1.amazonaws.com";
+
+function safeChoiceImage(value: unknown): Pick<Choice, "imageData" | "imageUrl"> {
+  const source = asString(value);
+  if (/^data:image\/(?:png|jpe?g|gif|webp);base64,[A-Za-z0-9+/]+={0,2}$/i.test(source) && source.length <= 1_000_000) {
+    return { imageData: source };
+  }
+  try {
+    const url = new URL(source);
+    if (url.protocol === "https:" && url.hostname === allowedChoiceImageHost && !url.username && !url.password && !url.port) {
+      return { imageUrl: url.toString() };
+    }
+  } catch {
+    // Non-URL values are simply not treated as choice images.
+  }
+  return {};
+}
+
+function imageSourceFromHtml(value: unknown): string {
+  const html = asString(value);
+  return html.match(/<img\b[^>]*\bsrc\s*=\s*(["'])(.*?)\1/i)?.[2] ?? "";
+}
+
+function decodeOptionText(value: string, rawHtml: string): string {
+  if (!value || !rawHtml.includes(value) || value.length < 4 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)) return value;
+  try {
+    const decoded = new TextDecoder().decode(Uint8Array.from(atob(value), (character) => character.charCodeAt(0)));
+    return decoded.length > 0 && /^[\x20-\x7e]+$/.test(decoded) ? decoded : value;
+  } catch {
+    return value;
+  }
+}
+
 function difficultyOf(value: unknown): Difficulty | null {
   const match = asString(value).match(/(?:TYPE\s*)?([ABC])\b/i);
   return match ? (match[1].toUpperCase() as Difficulty) : null;
@@ -23,8 +56,14 @@ function responseTypeOf(value: unknown): ResponseType | null {
 function parseOptions(value: unknown, row: RawQuestion): Choice[] {
   if (Array.isArray(value)) {
     return value.map((option, index) => {
+      if (typeof option === "string" || typeof option === "number") {
+        return { id: String.fromCharCode(65 + index), text: asString(option) };
+      }
       const candidate = option as Record<string, unknown>;
-      return { id: asString(candidate.identifier ?? candidate.id ?? String.fromCharCode(65 + index)), text: asString(candidate.text ?? candidate.value) };
+      const rawHtml = asString(candidate.raw_html ?? candidate.html ?? candidate.rawHtml);
+      const text = decodeOptionText(asString(candidate.text ?? candidate.value), rawHtml);
+      const image = safeChoiceImage(candidate.imageData ?? candidate.image_data ?? candidate.imageUrl ?? candidate.image_url ?? imageSourceFromHtml(rawHtml));
+      return { id: asString(candidate.identifier ?? candidate.id ?? String.fromCharCode(65 + index)), text, ...image };
     });
   }
   if (typeof value === "string" && value.trim().startsWith("[")) {
@@ -35,8 +74,10 @@ function parseOptions(value: unknown, row: RawQuestion): Choice[] {
     }
   }
   return ["A", "B", "C", "D", "E"].flatMap((key) => {
-    const text = asString(row[`option_${key.toLowerCase()}`] ?? row[`option${key}`]);
-    return text ? [{ id: key, text }] : [];
+    const rawHtml = asString(row[`option_${key.toLowerCase()}_html`] ?? row[`option${key}_html`]);
+    const text = decodeOptionText(asString(row[`option_${key.toLowerCase()}`] ?? row[`option${key}`]), rawHtml);
+    const image = safeChoiceImage(imageSourceFromHtml(rawHtml) || row[`option_${key.toLowerCase()}_image_url`] || row[`option${key}ImageUrl`]);
+    return text || image.imageData || image.imageUrl ? [{ id: key, text, ...image }] : [];
   });
 }
 
@@ -98,6 +139,7 @@ export function validateQuestionImport(questions: Question[]): ImportIssue[] {
     if (!question.answer) issues.push({ row, id, severity: "error", message: "Correct answer is missing." });
     if (!question.hasSolution) issues.push({ row, id, severity: "warning", message: "Solution is missing; this question cannot be placed in a published sectional." });
     if (question.responseType === "MCQ" && question.options.length < 2) issues.push({ row, id, severity: "error", message: "MCQ requires at least two choices." });
+    if (question.responseType === "MCQ" && question.options.some((choice) => !choice.text && !choice.imageData && !choice.imageUrl)) issues.push({ row, id, severity: "error", message: "Every MCQ choice needs readable text or a supported image." });
     if (!question.pillar || question.pillar === "Unclassified") issues.push({ row, id, severity: "warning", message: "Topic area is not classified." });
   });
   return issues;
