@@ -40,12 +40,24 @@ export const TEST_QUESTION_COUNT = 22;
 export const TEST_DURATION_SECONDS = 40 * 60;
 
 export function topicBucket(question: Pick<Question, "pillar" | "area" | "topic">): TopicBucket | null {
-  const values = `${question.pillar} ${question.area} ${question.topic}`.toLowerCase();
-  if (/modern|permutation|combination|probability|set theory/.test(values)) return "Modern Math";
-  if (/number system|number|factor|multiple|remainder|divisibility/.test(values)) return "Number System";
-  if (/geometry|mensuration|triangle|circle|polygon|quadrilateral/.test(values)) return "Geometry";
-  if (/algebra|equation|inequalit|function|logarithm|progression|polynomial/.test(values)) return "Algebra";
-  if (/arithmetic|ratio|percentage|profit|loss|interest|work|speed|distance|average|mixture|alligation/.test(values)) return "Arithmetic";
+  const topic = question.topic.toLowerCase();
+  const area = question.area.toLowerCase();
+  const pillar = question.pillar.toLowerCase();
+
+  // Classify the actual concept before the broad source tags. Some banks put
+  // Algebra subtopics under a "Modern Math" pillar/area.
+  if (/permutation|combination|probability|set theory|binomial theorem/.test(topic)) return "Modern Math";
+  if (/number system|factor|multiple|remainder|divisibility|surds?|indices|factorial|base system|hcf|number line|types of numbers|decimals|fractions|odd|even|mathematical operations/.test(topic)) return "Number System";
+  if (/geometry|mensuration|triangle|circle|polygon|quadrilateral|coordinate geometry|trigonometry/.test(topic)) return "Geometry";
+  if (/arithmetic|ratio|percentage|profit|loss|interest|work|speed|distance|average|mixture|alligation|partnership|sici|clock|calendar|word problem/.test(topic)) return "Arithmetic";
+  if (/algebra|equation|inequalit|function|logarithm|progression|sequence|polynomial|modulus|maxima|minima/.test(topic)) return "Algebra";
+
+  const broadLabels = `${pillar} ${area}`;
+  if (/number system|numbers/.test(broadLabels)) return "Number System";
+  if (/geometry|mensuration/.test(broadLabels)) return "Geometry";
+  if (/arithmetic/.test(broadLabels)) return "Arithmetic";
+  if (/algebra/.test(broadLabels)) return "Algebra";
+  if (/modern math/.test(broadLabels)) return "Modern Math";
   return null;
 }
 

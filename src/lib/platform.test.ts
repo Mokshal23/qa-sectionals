@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseQuestionImport, validateQuestionImport } from "./import";
-import { AttemptRecord, Question, scoreQuestion } from "./domain";
+import { AttemptRecord, Question, scoreQuestion, topicBucket } from "./domain";
 import { generateSectionals } from "./generator";
 import { analyzeAttempt } from "./analytics";
 
@@ -63,6 +63,15 @@ describe("sectional assembly", () => {
     const result = generateSectionals(bank);
     expect(result.maxForms).toBe(0);
     expect(result.limitingCategory).toContain("Type C");
+  });
+});
+
+describe("topic classification", () => {
+  it("uses specific concepts before inconsistent broad labels in imported banks", () => {
+    expect(topicBucket({ pillar: "Modern Math", area: "Modern Math", topic: "Logarithms" })).toBe("Algebra");
+    expect(topicBucket({ pillar: "Algebra", area: "Modern Math", topic: "Functions" })).toBe("Algebra");
+    expect(topicBucket({ pillar: "Algebra", area: "Modern Math", topic: "Sequence & Series" })).toBe("Algebra");
+    expect(topicBucket({ pillar: "Modern Math", area: "Algebra", topic: "Permutation & Combination" })).toBe("Modern Math");
   });
 });
 
