@@ -3,6 +3,7 @@ import { getOwnerApiUser } from "@/lib/api-auth";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Question } from "@/lib/domain";
 import { validateQuestionImport } from "@/lib/import";
+import { safeQuestionChoices } from "@/lib/sanitize";
 
 export async function GET() {
   const auth = await getOwnerApiUser();
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
     // Published forms keep their prompts, keys, and solutions fixed. Choice display
     // metadata can be repaired in place so existing tests render their source assets.
     const repairs = await Promise.all(frozenQuestions.map(({ id, options }) =>
-      admin.from("question_catalog").update({ options }).eq("id", id).select("id").maybeSingle(),
+      admin.from("question_catalog").update({ options: safeQuestionChoices(options) }).eq("id", id).select("id").maybeSingle(),
     ));
     const failedRepair = repairs.find((result) => result.error || !result.data);
     if (failedRepair) return NextResponse.json({ error: failedRepair.error?.message ?? "Could not repair stored choices for a published question." }, { status: 500 });
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
   if (!editableQuestions.length) return NextResponse.json({ saved: 0, repaired: frozenQuestions.length, frozen: frozenQuestions.length });
   const catalogRows = editableQuestions.map((question) => ({
     id: question.id, prompt: question.prompt, prompt_html: question.promptHtml,
-    options: question.options, pillar: question.pillar, topic: question.topic, area: question.area,
+    options: safeQuestionChoices(question.options), pillar: question.pillar, topic: question.topic, area: question.area,
     difficulty: question.difficulty, response_type: question.responseType,
     p_value: question.pValue, p_value_unit: question.pValueUnit, has_solution: question.hasSolution,
   }));

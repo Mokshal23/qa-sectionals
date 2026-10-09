@@ -2,7 +2,7 @@ export type Difficulty = "A" | "B" | "C";
 export type ResponseType = "MCQ" | "TITA";
 export type TopicBucket = "Arithmetic" | "Algebra" | "Geometry" | "Number System" | "Modern Math";
 
-export type Choice = { id: string; text: string; imageData?: string; imageUrl?: string };
+export type Choice = { id: string; text: string; html?: string; imageData?: string; imageUrl?: string };
 
 export type Question = {
   id: string;

@@ -12,6 +12,7 @@ export function safeQuestionChoices(value: unknown): Choice[] {
     const id = typeof candidate.id === "string" ? candidate.id.slice(0, 4) : "";
     if (!id) return [];
     const text = typeof candidate.text === "string" ? candidate.text.slice(0, 4000) : "";
+    const html = typeof candidate.html === "string" ? safeChoiceHtml(candidate.html.slice(0, 8000)) : "";
     const imageData = typeof candidate.imageData === "string" && candidate.imageData.length <= 1_000_000 && dataImagePattern.test(candidate.imageData) ? candidate.imageData : undefined;
     let imageUrl: string | undefined;
     if (typeof candidate.imageUrl === "string") {
@@ -22,7 +23,16 @@ export function safeQuestionChoices(value: unknown): Choice[] {
         // Invalid image URLs are omitted from public question data.
       }
     }
-    return text || imageData || imageUrl ? [{ id, text, ...(imageData ? { imageData } : {}), ...(imageUrl ? { imageUrl } : {}) }] : [];
+    return text || html || imageData || imageUrl ? [{ id, text, ...(html ? { html } : {}), ...(imageData ? { imageData } : {}), ...(imageUrl ? { imageUrl } : {}) }] : [];
+  });
+}
+
+export function safeChoiceHtml(value: string): string {
+  return sanitizeHtml(value, {
+    allowedTags: ["br", "strong", "b", "em", "i", "u", "del", "sub", "sup"],
+    allowedAttributes: {},
+    allowedSchemes: [],
+    disallowedTagsMode: "discard",
   });
 }
 

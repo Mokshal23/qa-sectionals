@@ -63,7 +63,10 @@ function parseOptions(value: unknown, row: RawQuestion): Choice[] {
       const rawHtml = asString(candidate.raw_html ?? candidate.html ?? candidate.rawHtml);
       const text = decodeOptionText(asString(candidate.text ?? candidate.value), rawHtml);
       const image = safeChoiceImage(candidate.imageData ?? candidate.image_data ?? candidate.imageUrl ?? candidate.image_url ?? imageSourceFromHtml(rawHtml));
-      return { id: asString(candidate.identifier ?? candidate.id ?? String.fromCharCode(65 + index)), text, ...image };
+      // Keep source superscripts/subscripts so formulas render as math instead of
+      // exposing the lossy plain-text fallback (for example, 0.25^99).
+      const html = /<(?:sup|sub)\b/i.test(rawHtml) ? rawHtml.slice(0, 8000) : undefined;
+      return { id: asString(candidate.identifier ?? candidate.id ?? String.fromCharCode(65 + index)), text, ...(html ? { html } : {}), ...image };
     });
   }
   if (typeof value === "string" && value.trim().startsWith("[")) {
@@ -77,7 +80,8 @@ function parseOptions(value: unknown, row: RawQuestion): Choice[] {
     const rawHtml = asString(row[`option_${key.toLowerCase()}_html`] ?? row[`option${key}_html`]);
     const text = decodeOptionText(asString(row[`option_${key.toLowerCase()}`] ?? row[`option${key}`]), rawHtml);
     const image = safeChoiceImage(imageSourceFromHtml(rawHtml) || row[`option_${key.toLowerCase()}_image_url`] || row[`option${key}ImageUrl`]);
-    return text || image.imageData || image.imageUrl ? [{ id: key, text, ...image }] : [];
+    const html = /<(?:sup|sub)\b/i.test(rawHtml) ? rawHtml.slice(0, 8000) : undefined;
+    return text || html || image.imageData || image.imageUrl ? [{ id: key, text, ...(html ? { html } : {}), ...image }] : [];
   });
 }
 
@@ -139,7 +143,7 @@ export function validateQuestionImport(questions: Question[]): ImportIssue[] {
     if (!question.answer) issues.push({ row, id, severity: "error", message: "Correct answer is missing." });
     if (!question.hasSolution) issues.push({ row, id, severity: "warning", message: "Solution is missing; this question cannot be placed in a published sectional." });
     if (question.responseType === "MCQ" && question.options.length < 2) issues.push({ row, id, severity: "error", message: "MCQ requires at least two choices." });
-    if (question.responseType === "MCQ" && question.options.some((choice) => !choice.text && !choice.imageData && !choice.imageUrl)) issues.push({ row, id, severity: "error", message: "Every MCQ choice needs readable text or a supported image." });
+    if (question.responseType === "MCQ" && question.options.some((choice) => !choice.text && !choice.html && !choice.imageData && !choice.imageUrl)) issues.push({ row, id, severity: "error", message: "Every MCQ choice needs readable text, math markup, or a supported image." });
     if (!question.pillar || question.pillar === "Unclassified") issues.push({ row, id, severity: "warning", message: "Topic area is not classified." });
   });
   return issues;
