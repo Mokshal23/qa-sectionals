@@ -79,6 +79,11 @@ create table if not exists public.attempt_events (
 create index if not exists attempts_owner_started_idx on public.attempts(owner_id, started_at desc);
 create index if not exists attempt_events_attempt_created_idx on public.attempt_events(attempt_id, created_at);
 
+-- Start from no Data API access, then grant only the operations listed below.
+revoke all on public.question_catalog, public.question_solutions,
+  public.sectionals, public.sectional_questions, public.platform_invites,
+  public.attempts, public.attempt_events from anon, authenticated;
+
 alter table public.question_catalog enable row level security;
 alter table public.question_solutions enable row level security;
 alter table public.sectionals enable row level security;
