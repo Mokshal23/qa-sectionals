@@ -8,6 +8,8 @@ type Invite = { email: string; role: string; active: boolean; created_at: string
 export function PeopleWorkspace() {
   const [email, setEmail] = useState("");
   const [invites, setInvites] = useState<Invite[]>([]);
+  const [invitesLoading, setInvitesLoading] = useState(true);
+  const [invitesLoadError, setInvitesLoadError] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [inviteRecipient, setInviteRecipient] = useState("");
   const [copied, setCopied] = useState(false);
@@ -16,10 +18,13 @@ export function PeopleWorkspace() {
   const [error, setError] = useState("");
 
   async function load() {
-    const response = await fetch("/api/admin/invites");
-    const result = await response.json();
-    if (response.ok) setInvites(result.invites ?? []);
-    else setError(result.error ?? "Could not load member list.");
+    try {
+      const response = await fetch("/api/admin/invites");
+      const result = await response.json();
+      if (response.ok) { setInvites(result.invites ?? []); setInvitesLoadError(""); }
+      else setInvitesLoadError(result.error ?? "Could not load member list.");
+    } catch { setInvitesLoadError("Could not load member list."); }
+    finally { setInvitesLoading(false); }
   }
   useEffect(() => {
     let alive = true;
@@ -28,10 +33,11 @@ export function PeopleWorkspace() {
         const response = await fetch("/api/admin/invites");
         const result = await response.json();
         if (alive) {
-          if (response.ok) setInvites(result.invites ?? []);
-          else setError(result.error ?? "Could not load member list.");
+          if (response.ok) { setInvites(result.invites ?? []); setInvitesLoadError(""); }
+          else setInvitesLoadError(result.error ?? "Could not load member list.");
+          setInvitesLoading(false);
         }
-      } catch { if (alive) setError("Could not load member list."); }
+      } catch { if (alive) { setInvitesLoadError("Could not load member list."); setInvitesLoading(false); } }
     })();
     return () => { alive = false; };
   }, []);
@@ -70,7 +76,7 @@ export function PeopleWorkspace() {
 
   const activeCount = invites.filter((item) => item.role !== "owner" && item.active).length;
   return <div className="page-content">
-    <div className="welcome-row"><div><div className="eyebrow"><UserRoundPlus size={13}/> PRIVATE GROUP · INVITE ONLY</div><h1>Bring your people in<span className="heading-period">.</span></h1><p className="page-subtitle">Create a one-time code and share it directly. Quantroom never sends confirmation or invitation emails.</p></div><div className="invite-count"><strong>{activeCount}</strong><span>active</span></div></div>
+    <div className="welcome-row"><div><div className="eyebrow"><UserRoundPlus size={13}/> PRIVATE GROUP · INVITE ONLY</div><h1>Bring your people in<span className="heading-period">.</span></h1><p className="page-subtitle">Create a one-time code and share it directly. Quantroom never sends confirmation or invitation emails.</p></div><div className="invite-count" aria-live="polite"><strong>{invitesLoading?"…":activeCount}</strong><span>{invitesLoading?"loading":"active"}</span></div></div>
     <div className="people-layout">
       <section className="panel invite-panel"><span className="panel-kicker">ADD A MEMBER</span><h2>Create an invite code</h2><p>Codes expire after seven days and can be used once. Share the code with your friend outside Quantroom.</p>
         <form className="invite-form" onSubmit={invite}><label htmlFor="invite-email">Friend’s email address</label><div className="invite-input-row"><input id="invite-email" type="email" autoComplete="off" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="friend@example.com" required/><button className="button button-dark" disabled={busy}>{busy ? "Creating…" : <><KeyRound size={15}/>Create code</>}</button></div></form>
@@ -80,7 +86,7 @@ export function PeopleWorkspace() {
         <div className="safe-note"><LockKeyhole size={14}/><span>The code is shown once and stored only as a hash. Organizer tools do not expose friends’ attempt rows.</span></div>
       </section>
       <section className="panel members-panel"><div className="panel-heading"><div><span className="panel-kicker">ACCESS LIST</span><h2>Group members</h2></div><ShieldCheck size={17} className="profile-shield"/></div>
-        {invites.length ? <div className="invite-list">{invites.filter((item) => item.role !== "owner").map((item) => <div className={`invite-row ${!item.active ? "revoked-invite" : ""}`} key={item.email}><span className="member-avatar">{item.email[0].toUpperCase()}</span><div><strong>{item.email}</strong><span>{!item.active ? "Access revoked; saved data retained." : item.claimed_at ? "Account activated" : item.invite_expires_at ? `Code expires ${new Date(item.invite_expires_at).toLocaleDateString()}` : "Invite code issued"}</span></div>{item.active ? <><span className="member-role">PARTICIPANT</span><button className="text-button revoke-button" onClick={() => void revoke(item.email)} disabled={busy}>Remove</button></> : <span className="member-role revoked-role">REVOKED</span>}</div>)}</div> : <div className="empty-state compact"><div className="empty-icon"><UserRoundPlus size={19}/></div><strong>No participants invited</strong><span>Generate a one-time code for your first friend.</span></div>}
+        {invitesLoading?<div className="empty-state compact"><div className="empty-icon"><UserRoundPlus size={19}/></div><strong>Loading group members…</strong><span>Checking current invite and activation status.</span></div>:invitesLoadError?<div className="error-message">{invitesLoadError}</div>:invites.length ? <div className="invite-list">{invites.filter((item) => item.role !== "owner").map((item) => <div className={`invite-row ${!item.active ? "revoked-invite" : ""}`} key={item.email}><span className="member-avatar">{item.email[0].toUpperCase()}</span><div><strong>{item.email}</strong><span>{!item.active ? "Access revoked; saved data retained." : item.claimed_at ? "Account activated" : item.invite_expires_at ? `Code expires ${new Date(item.invite_expires_at).toLocaleDateString()}` : "Invite code issued"}</span></div>{item.active ? <><span className="member-role">PARTICIPANT</span><button className="text-button revoke-button" onClick={() => void revoke(item.email)} disabled={busy}>Remove</button></> : <span className="member-role revoked-role">REVOKED</span>}</div>)}</div> : <div className="empty-state compact"><div className="empty-icon"><UserRoundPlus size={19}/></div><strong>No participants invited</strong><span>Generate a one-time code for your first friend.</span></div>}
       </section>
     </div>
     <div className="sectional-footnote"><ShieldCheck size={15}/>Members do not see one another’s accounts, attempts, scores, or reports.</div>
