@@ -32,9 +32,13 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
+
+# Question bank is seeded into the private database and must not be published to GitHub.
+/data/question-bank.json
 
 # typescript
 *.tsbuildinfo

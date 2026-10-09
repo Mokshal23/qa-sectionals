@@ -1,0 +1,2 @@
+id,prompt,prompt_html,options,answer,solution,solution_html,pillar,topic,area,difficulty,response_type,p_value,p_value_unit
+sample-001,"If x + 2 = 5, find x.",,"[{""id"":""A"",""text"":""2""},{""id"":""B"",""text"":""3""},{""id"":""C"",""text"":""4""},{""id"":""D"",""text"":""5""}]",B,"Subtract 2 from both sides.",,Algebra,Linear equations,Equations,B,MCQ,,

@@ -1,69 +1,49 @@
-import Image from "next/image";
+import { AppShell } from "@/components/app-shell";
+import { Dashboard } from "@/components/dashboard";
+import { getCurrentUser } from "@/lib/auth";
+import { loadQuestionBank } from "@/lib/bank";
+import { generateSectionals } from "@/lib/generator";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
+import type { Question } from "@/lib/domain";
 
-export default function Home() {
-  return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  const configured = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  if (!configured) {
+    const bank = await loadQuestionBank();
+    const generated = generateSectionals(bank.questions);
+    return <AppShell active="Overview"><Dashboard totalQuestions={bank.questions.length} readyQuestions={generated.eligibleQuestionCount} missingSolutions={generated.noSolutionQuestions} generated={generated} preview /></AppShell>;
+  }
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const owner = user.app_metadata?.role === "owner";
+  if (owner) {
+    let allQuestions: Question[] = [];
+    let availableQuestions: Question[] = [];
+    let publishedForms: Array<{ id: string; title: string; duration_seconds: number }> = [];
+    try {
+      const admin = createSupabaseAdminClient();
+      const [{ data: rows }, { data: keys }, { data: usedRows }] = await Promise.all([admin.from("question_catalog").select("*"), admin.from("question_solutions").select("*"), admin.from("sectional_questions").select("question_id")]);
+      allQuestions = (rows ?? []).map((row) => {
+        const key = keys?.find((candidate) => candidate.question_id === row.id);
+        return { id: row.id, prompt: row.prompt, promptHtml: row.prompt_html, options: row.options, answer: key?.answer ?? "", solution: key?.solution ?? "", solutionHtml: key?.solution_html ?? "", pillar: row.pillar, topic: row.topic, area: row.area, difficulty: row.difficulty, responseType: row.response_type, pValue: row.p_value === null ? null : Number(row.p_value), pValueUnit: row.p_value_unit, hasSolution: row.has_solution } as Question;
+      });
+      const used = new Set((usedRows ?? []).map((item) => item.question_id));
+      availableQuestions = allQuestions.filter((question) => !used.has(question.id));
+      const { data } = await admin.from("sectionals").select("id,title,duration_seconds").eq("published", true).order("created_at", { ascending: false });
+      publishedForms = data ?? [];
+    } catch { /* The setup screen explains missing database configuration. */ }
+    const allGeneration = generateSectionals(allQuestions);
+    const generated = generateSectionals(availableQuestions);
+    return <AppShell active="Overview" userName={user.email ?? "Organizer"} role="Organizer"><Dashboard totalQuestions={allQuestions.length} readyQuestions={allGeneration.eligibleQuestionCount} missingSolutions={allGeneration.noSolutionQuestions} generated={generated} preview={false} owner sectionals={publishedForms} /></AppShell>;
+  }
+  const supabase = await createSupabaseServerClient();
+  const [{ data: sectionals }, { data: attempts }] = await Promise.all([
+    supabase!.from("sectionals").select("id,title,duration_seconds,created_at").eq("published", true).order("created_at", { ascending: false }),
+    supabase!.from("attempts").select("id,sectional_id,status,started_at,submitted_at,score").order("started_at", { ascending: false }).limit(10),
+  ]);
+  return <AppShell active="Overview" userName={user.email ?? "Member"} role="Participant"><Dashboard totalQuestions={0} readyQuestions={0} missingSolutions={0} generated={generateSectionals([])} preview={false} sectionals={sectionals ?? []} attempts={attempts ?? []} /></AppShell>;
 }
