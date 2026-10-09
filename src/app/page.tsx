@@ -13,7 +13,14 @@ export const dynamic = "force-dynamic";
 export default async function HomePage() {
   const configured = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
   if (!configured) {
-    const bank = await loadQuestionBank();
+    let bank;
+    try {
+      bank = await loadQuestionBank();
+    } catch {
+      // The private bank is intentionally excluded from the deployment bundle.
+      // Keep the public shell healthy until Supabase is connected and seeded.
+      bank = { questions: [] as Question[] };
+    }
     const generated = generateSectionals(bank.questions);
     return <AppShell active="Overview"><Dashboard totalQuestions={bank.questions.length} readyQuestions={generated.eligibleQuestionCount} missingSolutions={generated.noSolutionQuestions} generated={generated} preview /></AppShell>;
   }

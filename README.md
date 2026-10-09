@@ -38,4 +38,4 @@ npm install
 npm run dev
 ```
 
-Without Supabase variables the app renders a local preview from `data/question-bank.json`; tests and member accounts require Supabase configuration.
+Without Supabase variables, the app renders a local preview from `data/question-bank.json` when that private file is present. The deployed site remains on an empty preview shell until Supabase is configured and the bank is seeded; the question data is never bundled into the public deployment.
