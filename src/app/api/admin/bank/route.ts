@@ -10,15 +10,15 @@ export async function GET() {
   const admin = createSupabaseAdminClient();
   const [{ data: rows, error }, { data: keys, error: keyError }] = await Promise.all([
     admin.from("question_catalog").select("id,difficulty,response_type,topic,pillar,area,has_solution,p_value"),
-    admin.from("question_solutions").select("question_id"),
+    admin.from("question_solutions").select("question_id,answer,solution,solution_html"),
   ]);
   if (error || keyError) return NextResponse.json({ error: error?.message ?? keyError?.message }, { status: 500 });
   const difficultyCounts = { A: 0, B: 0, C: 0 };
   const readyCounts = { A: 0, B: 0, C: 0 };
-  const solutionIds = new Set((keys ?? []).map((key) => key.question_id));
+  const solutionIds = new Set((keys ?? []).filter((key) => Boolean(key.answer?.trim() && (key.solution?.trim() || key.solution_html?.trim()))).map((key) => key.question_id));
   for (const row of rows ?? []) {
     difficultyCounts[row.difficulty as "A" | "B" | "C"] += 1;
-    if (row.has_solution && solutionIds.has(row.id) && (row.topic || row.pillar || row.area)) readyCounts[row.difficulty as "A" | "B" | "C"] += 1;
+    if (solutionIds.has(row.id) && (row.topic || row.pillar || row.area)) readyCounts[row.difficulty as "A" | "B" | "C"] += 1;
   }
   return NextResponse.json({ total: rows?.length ?? 0, difficultyCounts, readyCounts, withPValue: (rows ?? []).filter((row) => row.p_value !== null).length });
 }

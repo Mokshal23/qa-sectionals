@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { Question, QuestionBankFile, isQuestionComplete, topicBucket } from "./domain";
+import { Question, QuestionBankFile, isQuestionComplete, questionHasSolution, topicBucket } from "./domain";
 
 let cachedBank: QuestionBankFile | null = null;
 
@@ -25,7 +25,7 @@ export function summarizeBank(questions: Question[]) {
     const topic = topicBucket(question) ?? "Unclassified";
     topicCounts.set(topic, (topicCounts.get(topic) ?? 0) + 1);
     formatCounts[question.responseType] += 1;
-    if (!question.hasSolution) missingSolution += 1;
+    if (!questionHasSolution(question)) missingSolution += 1;
     if (!question.prompt.trim() && !question.promptHtml.trim()) missingPrompt += 1;
   }
   return {

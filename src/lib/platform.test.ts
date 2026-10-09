@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseQuestionImport, validateQuestionImport } from "./import";
-import { AttemptRecord, Question, scoreQuestion, topicBucket } from "./domain";
+import { AttemptRecord, Question, isQuestionComplete, scoreQuestion, topicBucket } from "./domain";
 import { generateSectionals } from "./generator";
 import { analyzeAttempt } from "./analytics";
 
@@ -32,6 +32,12 @@ describe("question import", () => {
     const [question] = parseQuestionImport(csv, "bank.csv");
     expect(question).toMatchObject({ prompt: "A, B, C?", difficulty: "A", responseType: "TITA", pValue: 14.2, options: [{ id: "A", text: "1" }, { id: "B", text: "2" }] });
     expect(() => parseQuestionImport(JSON.stringify([{ id: "q3", prompt: "Stem", answer: "1" }]), "bad.json")).toThrow(/difficulty label/);
+  });
+
+  it("treats an image-only HTML solution as a complete solution", () => {
+    const [question] = parseQuestionImport(JSON.stringify([{ id: "q-html", question_text: "Stem", options: [{ id: "A", text: "1" }, { id: "B", text: "2" }], correct_answer: "B", solution_html: "<div><img src=\"https://example.com/solution.png\"></div>", pillar: "Algebra", topic: "Equations", classification: "A", format: "MCQ" }]), "bank.json");
+    expect(question.hasSolution).toBe(true);
+    expect(isQuestionComplete(question)).toBe(true);
   });
 });
 

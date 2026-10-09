@@ -39,6 +39,10 @@ export const TOPIC_BUCKETS = Object.keys(TOPIC_SHARES) as TopicBucket[];
 export const TEST_QUESTION_COUNT = 22;
 export const TEST_DURATION_SECONDS = 40 * 60;
 
+export function questionHasSolution(question: Pick<Question, "solution" | "solutionHtml">): boolean {
+  return Boolean(question.solution.trim() || question.solutionHtml.trim());
+}
+
 export function topicBucket(question: Pick<Question, "pillar" | "area" | "topic">): TopicBucket | null {
   const topic = question.topic.toLowerCase();
   const area = question.area.toLowerCase();
@@ -65,7 +69,7 @@ export function isQuestionComplete(question: Question): boolean {
   const hasPrompt = Boolean(question.prompt.trim() || question.promptHtml.trim());
   const hasAnswer = Boolean(question.answer.trim());
   const hasCorrectOptions = question.responseType !== "MCQ" || question.options.length >= 2;
-  return hasPrompt && hasAnswer && question.hasSolution && hasCorrectOptions && Boolean(topicBucket(question));
+  return hasPrompt && hasAnswer && questionHasSolution(question) && hasCorrectOptions && Boolean(topicBucket(question));
 }
 
 export function normalizeAnswer(value: unknown): string {

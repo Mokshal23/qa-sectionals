@@ -31,7 +31,7 @@ for (let index = 0; index < questions.length; index += batchSize) {
     options: question.options ?? [], pillar: question.pillar ?? "", topic: question.topic ?? "",
     area: question.area ?? "", difficulty: question.difficulty, response_type: question.responseType,
     p_value: question.pValue, p_value_unit: question.pValueUnit ?? "source-supplied",
-    has_solution: Boolean(question.hasSolution),
+    has_solution: Boolean(question.solution?.trim() || question.solutionHtml?.trim()),
   }));
   const { error } = await admin.from("question_catalog").upsert(catalog);
   if (error) throw new Error(`Catalog batch ${Math.floor(index / batchSize) + 1}: ${error.message}`);

@@ -38,6 +38,7 @@ const questions = rows.map((row, index) => {
       }))
     : [];
   const solution = String(row.solution ?? "").trim();
+  const solutionHtml = String(row.solution_html ?? row.solutionHtml ?? "").trim();
   return {
     id: questionId,
     prompt: String(row.question_text ?? row.prompt ?? "").trim(),
@@ -45,7 +46,7 @@ const questions = rows.map((row, index) => {
     options,
     answer: String(row.correct_answer ?? row.answer ?? "").trim(),
     solution,
-    solutionHtml: String(row.solution_html ?? row.solutionHtml ?? "").trim(),
+    solutionHtml,
     pillar: String(row.pillar ?? row.subject ?? row.topic_group ?? "Unclassified").trim(),
     topic: String(row.topic ?? row.subtopic ?? "Unclassified").trim(),
     area: String(row.area ?? "").trim(),
@@ -53,7 +54,7 @@ const questions = rows.map((row, index) => {
     responseType: normalizeResponseType(row.format ?? row.responseType),
     pValue: toFiniteNumber(row.p_value ?? row.pValue),
     pValueUnit: String(row.p_value_unit ?? row.pValueUnit ?? "source-supplied").trim(),
-    hasSolution: solution.length > 0,
+    hasSolution: solution.length > 0 || solutionHtml.length > 0,
   };
 });
 

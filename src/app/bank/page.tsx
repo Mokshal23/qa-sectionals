@@ -17,8 +17,8 @@ export default async function BankPage() {
     stats = summarizeBank(bank.questions);
   } else {
     const admin = createSupabaseAdminClient();
-    const [{ data: rows }, { data: keys }] = await Promise.all([admin.from("question_catalog").select("id,difficulty,response_type,topic,pillar,area,has_solution,p_value"), admin.from("question_solutions").select("question_id")]);
-    const keyIds = new Set((keys ?? []).map((key) => key.question_id));
+    const [{ data: rows }, { data: keys }] = await Promise.all([admin.from("question_catalog").select("id,difficulty,response_type,topic,pillar,area,has_solution,p_value"), admin.from("question_solutions").select("question_id,answer,solution,solution_html")]);
+    const usableKeys = new Set((keys ?? []).filter((key) => Boolean(key.answer?.trim() && (key.solution?.trim() || key.solution_html?.trim()))).map((key) => key.question_id));
     const readyCounts = { A: 0, B: 0, C: 0 };
     const difficultyCounts = { A: 0, B: 0, C: 0 };
     const topicCounts: Record<string, number> = {};
@@ -28,9 +28,9 @@ export default async function BankPage() {
       formatCounts[row.response_type as "MCQ" | "TITA"] += 1;
       const topic = row.topic || row.pillar || row.area || "Unclassified";
       topicCounts[topic] = (topicCounts[topic] ?? 0) + 1;
-      if (row.has_solution && keyIds.has(row.id)) readyCounts[row.difficulty as "A" | "B" | "C"] += 1;
+      if (usableKeys.has(row.id)) readyCounts[row.difficulty as "A" | "B" | "C"] += 1;
     }
-    stats = { total: rows?.length ?? 0, ready: Object.values(readyCounts).reduce((a,b)=>a+b,0), missingSolution: (rows ?? []).filter((row) => !row.has_solution || !keyIds.has(row.id)).length, difficultyCounts, readyCounts, topicCounts, formatCounts, withPValue: (rows ?? []).filter((row) => row.p_value !== null).length };
+    stats = { total: rows?.length ?? 0, ready: Object.values(readyCounts).reduce((a,b)=>a+b,0), missingSolution: (rows ?? []).filter((row) => !usableKeys.has(row.id)).length, difficultyCounts, readyCounts, topicCounts, formatCounts, withPValue: (rows ?? []).filter((row) => row.p_value !== null).length };
   }
   return <AppShell active="Question bank" userName={user?.email ?? "Preview"} role={user ? "Organizer" : "Preview"}><BankWorkspace stats={stats} preview={!process.env.NEXT_PUBLIC_SUPABASE_URL} /></AppShell>;
 }

@@ -45,8 +45,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         id: row.id, prompt: row.prompt, promptHtml: row.prompt_html, options: row.options,
         pillar: row.pillar, topic: row.topic, area: row.area, difficulty: row.difficulty,
         responseType: row.response_type, pValue: row.p_value === null ? null : Number(row.p_value),
-        pValueUnit: row.p_value_unit, hasSolution: Boolean(row.has_solution),
+        pValueUnit: row.p_value_unit,
         answer: key?.answer ?? "", solution: key?.solution ?? "", solutionHtml: key?.solution_html ?? "",
+        hasSolution: Boolean(key?.solution?.trim() || key?.solution_html?.trim()),
       };
     }) as unknown as Question[];
     const attemptRecord: AttemptRecord = {

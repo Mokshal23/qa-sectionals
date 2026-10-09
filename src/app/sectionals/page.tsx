@@ -24,7 +24,9 @@ export default async function SectionalsPage() {
     const [{ data: rows }, { data: keys }] = await Promise.all([admin.from("question_catalog").select("*"), admin.from("question_solutions").select("*")]);
     const allQuestions = (rows ?? []).map((row) => {
       const key = keys?.find((candidate) => candidate.question_id === row.id);
-      return { id: row.id, prompt: row.prompt, promptHtml: row.prompt_html, options: row.options, answer: key?.answer ?? "", solution: key?.solution ?? "", solutionHtml: key?.solution_html ?? "", pillar: row.pillar, topic: row.topic, area: row.area, difficulty: row.difficulty, responseType: row.response_type, pValue: row.p_value === null ? null : Number(row.p_value), pValueUnit: row.p_value_unit, hasSolution: row.has_solution } as Question;
+      const solution = key?.solution ?? "";
+      const solutionHtml = key?.solution_html ?? "";
+      return { id: row.id, prompt: row.prompt, promptHtml: row.prompt_html, options: row.options, answer: key?.answer ?? "", solution, solutionHtml, pillar: row.pillar, topic: row.topic, area: row.area, difficulty: row.difficulty, responseType: row.response_type, pValue: row.p_value === null ? null : Number(row.p_value), pValueUnit: row.p_value_unit, hasSolution: Boolean(solution.trim() || solutionHtml.trim()) } as Question;
     });
     const { data: usedRows } = await admin.from("sectional_questions").select("question_id");
     const used = new Set((usedRows ?? []).map((item) => item.question_id));

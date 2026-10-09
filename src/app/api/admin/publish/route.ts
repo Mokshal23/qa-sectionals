@@ -15,7 +15,9 @@ export async function POST() {
   if (error || keyError) return NextResponse.json({ error: error?.message ?? keyError?.message }, { status: 500 });
   const bank = (rows ?? []).map((row) => {
     const key = keys?.find((candidate) => candidate.question_id === row.id);
-    return { id: row.id, prompt: row.prompt, promptHtml: row.prompt_html, options: row.options, answer: key?.answer ?? "", solution: key?.solution ?? "", solutionHtml: key?.solution_html ?? "", pillar: row.pillar, topic: row.topic, area: row.area, difficulty: row.difficulty, responseType: row.response_type, pValue: row.p_value === null ? null : Number(row.p_value), pValueUnit: row.p_value_unit, hasSolution: row.has_solution } as Question;
+    const solution = key?.solution ?? "";
+    const solutionHtml = key?.solution_html ?? "";
+    return { id: row.id, prompt: row.prompt, promptHtml: row.prompt_html, options: row.options, answer: key?.answer ?? "", solution, solutionHtml, pillar: row.pillar, topic: row.topic, area: row.area, difficulty: row.difficulty, responseType: row.response_type, pValue: row.p_value === null ? null : Number(row.p_value), pValueUnit: row.p_value_unit, hasSolution: Boolean(solution.trim() || solutionHtml.trim()) } as Question;
   });
   const alreadyUsed = new Set((usedRows ?? []).map((item) => item.question_id));
   const generated = generateSectionals(bank.filter((question) => !alreadyUsed.has(question.id)));
